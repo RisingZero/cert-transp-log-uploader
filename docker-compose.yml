@@ -1,0 +1,52 @@
+services:
+  task_broker:
+    container_name: ctlogs_task_broker
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ctlogs_broker_volume:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${TASK_BROKER_USER}
+      RABBITMQ_DEFAULT_PASS: ${TASK_BROKER_PASS}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST}
+    networks:
+      - ctlogs_network
+    healthcheck:
+        test: rabbitmq-diagnostics check_port_connectivity
+        interval: 15s
+        timeout: 15s
+        retries: 10
+    restart: unless-stopped
+
+  task_worker:
+    container_name: ctlogs_task_worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+        - ./data:/app/data
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME}
+      CT_DOMAIN: ${CT_DOMAIN}
+      TASK_BROKER_HOST: ${TASK_BROKER_HOST}
+      TASK_BROKER_PORT: ${TASK_BROKER_PORT}
+      TASK_BROKER_USER: ${TASK_BROKER_USER}
+      TASK_BROKER_PASS: ${TASK_BROKER_PASS}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST}
+    depends_on:
+      task_broker:
+        condition: service_healthy
+    networks:
+      - ctlogs_network
+    restart: unless-stopped
+
+networks:
+  ctlogs_network:
+
+volumes:
+  ctlogs_broker_volume:
